@@ -22,6 +22,12 @@ func getYear() string {
 	return fmt.Sprintf("%d", year)
 }
 
+func getDay() string {
+	_, _, day := time.Now().Date()
+
+	return fmt.Sprintf("%d", day)
+}
+
 func formatSlug(slug string, title string) string {
 	if slug == "" {
 		slug = title
@@ -81,12 +87,39 @@ func appendText(path string, text string) error {
 	return nil
 }
 
+func downloadFile(source string, dest string) error {
+	return nil
+}
+
+func findMarkdownImages(text string) ([]string, error) {
+	return []string{}, nil
+}
+
+// "blog/#y/#m/#s.md" => "blog/%s/%s/%s.md" => blog/2022/02/test-post.md
+func parsePathFormat(format string, title string, slug string) string {
+	dataMap := map[string]func() string{
+		"#m": getMonth,
+		"#y": getYear,
+		"#d": getDay,
+	}
+
+	for k, v := range dataMap {
+		format = strings.ReplaceAll(format, k, v())
+	}
+
+	if strings.Contains(format, "#s") {
+		format = strings.ReplaceAll(format, "#s", formatSlug(slug, title))
+	}
+
+	return format
+}
+
 func main() {
 	// Flags
 	title := flag.String("t", "", "Set the title of the post.")
 	slug := flag.String("s", "", "Set a custom slug; Defaults to the title.")
 	editor := flag.String("e", "", "Path of editor command to open the resulting file with.")
-
+	format := flag.String("p", "blog/#y/#m/#s.md", "The path of the new blog post.")
 	flag.Parse()
 
 	if *title == "" {
@@ -94,19 +127,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	postPathFormat := "blog/%s/%s/%s.md"
-	fullPostPathFormat := "./content/" + postPathFormat
+	// Generate the stub file
 
-	hugoNew := exec.Command("hugo", "new", fmt.Sprintf(postPathFormat, getYear(), getMonth(), formatSlug(*slug, *title)))
+	postPath := parsePathFormat(*format, *title, *slug)
+	fullPostPath := "./content/" + postPath
+
+	hugoNew := exec.Command("hugo", "new", postPath)
 	if err := hugoNew.Run(); err != nil {
 		fmt.Println(err.Error())
 	}
 
-	fullPostPath := fmt.Sprintf(fullPostPathFormat, getYear(), getMonth(), formatSlug(*slug, *title))
+	// Fill in the body
 	if hasStdIn() {
 		appendText(fullPostPath, readStdIn())
 	}
 
+	// Scan and update images
+
+	// Open it in an editor
 	if *editor != "" {
 		openEditor := exec.Command(*editor, fullPostPath)
 		if err := openEditor.Run(); err != nil {
