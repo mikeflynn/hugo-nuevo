@@ -48,6 +48,10 @@ func formatSlug(slug string, title string) string {
 	}
 
 	slug = strings.ToLower(slug)
+
+	badChars, _ := regexp.Compile(`[^\w\s]`)
+	slug = badChars.ReplaceAllString(slug, "")
+
 	slug = strings.ReplaceAll(slug, " ", "-")
 
 	return slug
@@ -146,7 +150,7 @@ func copyFile(source string, dest string) error {
 	return nil
 }
 
-func appendText(path string, text string) error {
+func appendFile(path string, text string) error {
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -161,12 +165,29 @@ func appendText(path string, text string) error {
 	return nil
 }
 
-func updateMarkdownImages(text string, relativeDest string) (string, error) {
+func writeFile(path string, text string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+
+	if _, err = f.WriteString(text); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func findImages(text string) [][]string {
 	r, _ := regexp.Compile(`(?i)!\[[\w\-\s\._]+\]\(([0-9a-z\-:_\.\/]+)\)`)
+	return r.FindAllStringSubmatch(text, -1)
+}
 
-	matches := r.FindAllStringSubmatch(text, -1)
-
-	fmt.Println(fmt.Sprintf("Found images: %d", len(matches)))
+func updateMarkdownImages(text string, relativeDest string) (string, error) {
+	matches := findImages(text)
+	//fmt.Println(fmt.Sprintf("Found images: %d", len(matches)))
 
 	if len(matches) > 0 {
 		i := 0
@@ -180,13 +201,13 @@ func updateMarkdownImages(text string, relativeDest string) (string, error) {
 					return "", err
 				}
 
-				text = strings.ReplaceAll(text, v[1], destPath)
+				text = strings.ReplaceAll(text, v[1], strings.Replace(destPath, "assets/", "", 1))
 			case strings.HasPrefix(v[1], "/"): // Abs path
 				if err := copyFile(v[0], getDir()+destPath); err != nil {
 					return "", err
 				}
 
-				text = strings.ReplaceAll(text, v[1], destPath)
+				text = strings.ReplaceAll(text, v[1], strings.Replace(destPath, "assets/", "", 1))
 			default: // Rel path
 				continue
 			}
@@ -196,6 +217,16 @@ func updateMarkdownImages(text string, relativeDest string) (string, error) {
 	}
 
 	return text, nil
+}
+
+func findHeaderImage(text string) (string, string) {
+	matches := findImages(text[0:750])
+	if len(matches) > 0 {
+		text = strings.ReplaceAll(text, matches[0][0], "")
+		return text, matches[0][1]
+	}
+
+	return text, ""
 }
 
 // "blog/#y/#m/#s.md" => "blog/%s/%s/%s.md" => blog/2022/02/test-post.md
@@ -232,11 +263,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if *title == "" {
-		fmt.Println("The post title is required.")
-		os.Exit(1)
-	}
-
 	body := ""
 	if *input == "" {
 		body = readStdIn()
@@ -261,6 +287,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *title == "" {
+		// Look for title in body
+		r, _ := regexp.Compile(`(?im)\- # ([\w\s’'\.,;]+)$`)
+		matches := r.FindAllStringSubmatch(body, 1)
+		if len(matches) > 0 {
+			foundTitle := strings.TrimSpace(matches[0][1])
+			title = &foundTitle
+
+			body = strings.Replace(body, matches[0][0]+"\n", "", 1)
+		}
+	}
+
 	// Generate the stub file
 
 	postPath := parsePathFormat(*format, *title, *slug)
@@ -279,8 +317,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Set header image
+	body, headerImage := findHeaderImage(body)
+	if headerImage != "" {
+		fmt.Println(fullPostPath)
+		data, err := readFile(fullPostPath)
+		if err == nil && len(data) > 0 {
+			data = strings.Replace(data, "image: \"\"", fmt.Sprintf("image: \"%s\"", headerImage), 1)
+			writeFile(fullPostPath, strings.TrimSpace(data))
+		}
+	}
+
 	// Save to file
-	appendText(fullPostPath, body)
+	appendFile(fullPostPath, body)
 
 	// Open it in an editor
 	if *editor != "" {
