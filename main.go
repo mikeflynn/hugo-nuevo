@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const VERSION = "0.1"
+
 func getMonth() string {
 	_, month, _ := time.Now().Date()
 
@@ -256,7 +258,13 @@ func main() {
 	slug := flag.String("s", "", "Set a custom slug; Defaults to the title.")
 	editor := flag.String("e", "", "Path of editor command to open the resulting file with.")
 	format := flag.String("p", "blog/#y/#m/#s.md", "The path of the new blog post.")
+	version := flag.Bool("v", false, "Display version number.")
 	flag.Parse()
+
+	if *version == true {
+		fmt.Println("hugo-nuevo: v" + VERSION)
+		os.Exit(1)
+	}
 
 	if _, err := os.Stat(getDir() + "archetypes"); err != nil {
 		fmt.Println("😕 This doesn't appear to be a Hugo directory. ")
