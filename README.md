@@ -8,7 +8,11 @@ The point of this project was to be able to export a markdown file from my chose
 
 ## Installation
 
-You can download the source and compile it (`go build`) or go to download a binary (`go get github.com/mikeflynn/hugo-nuevo`)
+To install this on your computer, you can use the `go install` command:
+
+```bash
+> go install github.com/mikeflynn/hugo-nuevo@latest
+```
 
 ## Usage
 
