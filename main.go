@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const VERSION = "0.2"
+const VERSION = "0.2.1"
 
 func getMonth() string {
 	_, month, _ := time.Now().Date()
@@ -183,7 +183,7 @@ func writeFile(path string, text string) error {
 }
 
 func findImages(text string) [][]string {
-	r, _ := regexp.Compile(`(?i)!\[[\w\-\s\._]+\]\(([0-9a-z\-:_\.\/]+)\)`)
+	r, _ := regexp.Compile(`(?i)!\[[\w\-\s\._].\]\(([0-9a-z\-:_\.\/]+)\)`)
 	return r.FindAllStringSubmatch(text, -1)
 }
 
