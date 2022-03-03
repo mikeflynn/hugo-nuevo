@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const VERSION = "0.1"
+const VERSION = "0.2"
 
 func getMonth() string {
 	_, month, _ := time.Now().Date()
@@ -222,10 +222,12 @@ func updateMarkdownImages(text string, relativeDest string) (string, error) {
 }
 
 func findHeaderImage(text string) (string, string) {
-	matches := findImages(text[0:750])
-	if len(matches) > 0 {
-		text = strings.ReplaceAll(text, matches[0][0], "")
-		return text, matches[0][1]
+	if len(text) > 750 {
+		matches := findImages(text[0:750])
+		if len(matches) > 0 {
+			text = strings.ReplaceAll(text, matches[0][0], "")
+			return text, matches[0][1]
+		}
 	}
 
 	return text, ""
@@ -258,6 +260,7 @@ func main() {
 	slug := flag.String("s", "", "Set a custom slug; Defaults to the title.")
 	editor := flag.String("e", "", "Path of editor command to open the resulting file with.")
 	format := flag.String("p", "blog/#y/#m/#s.md", "The path of the new blog post.")
+	publish := flag.Bool("publish", false, "If true, set the draft status to false.")
 	version := flag.Bool("v", false, "Display version number.")
 	flag.Parse()
 
@@ -272,13 +275,7 @@ func main() {
 	}
 
 	body := ""
-	if *input == "" {
-		body = readStdIn()
-		if len(body) == 0 {
-			fmt.Println("No input path or stdin found. There's nothing to post. 🤷‍♀️")
-			os.Exit(1)
-		}
-	} else {
+	if *input != "" {
 		contents, err := readFile(*input)
 		if err != nil {
 			fmt.Println("Unable to read input markdown file. 🤬")
@@ -290,11 +287,12 @@ func main() {
 
 	body = strings.TrimSpace(body)
 
-	if body == "" {
-		fmt.Println("No post body found. 🤔")
-		os.Exit(1)
-	}
-
+	/*
+		if body == "" {
+			fmt.Println("No post body found. 🤔")
+			os.Exit(1)
+		}
+	*/
 	if *title == "" {
 		// Look for title in body
 		r, _ := regexp.Compile(`(?im)\- # ([\w\s’'\.,;]+)$`)
@@ -327,11 +325,20 @@ func main() {
 
 	// Set header image
 	body, headerImage := findHeaderImage(body)
-	if headerImage != "" {
-		fmt.Println(fullPostPath)
+
+	if headerImage != "" || *publish == true {
 		data, err := readFile(fullPostPath)
 		if err == nil && len(data) > 0 {
-			data = strings.Replace(data, "image: \"\"", fmt.Sprintf("image: \"%s\"", headerImage), 1)
+			// Set post to publish
+			if *publish == true {
+				data = strings.Replace(data, "draft: true", "draft: false", 1)
+			}
+
+			// Set header image
+			if headerImage != "" {
+				data = strings.Replace(data, "image: \"\"", fmt.Sprintf("image: \"%s\"", headerImage), 1)
+			}
+
 			writeFile(fullPostPath, strings.TrimSpace(data))
 		}
 	}

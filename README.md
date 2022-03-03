@@ -27,6 +27,8 @@ Usage of ./hugo-nuevo:
       The file path of the markdown file to post.
   -p string
       The path of the new blog post. (default "blog/#y/#m/#s.md")
+  -publish
+      If true, set the draft status to false.
   -s string
       Set a custom slug; Defaults to the title.
   -t string
